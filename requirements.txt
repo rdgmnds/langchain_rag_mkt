@@ -1,0 +1,24 @@
+# LangChain e integrações
+langchain==0.3.13
+langchain-core==0.3.56
+langchain-openai==0.2.13
+langchain-community==0.3.0
+langchain-huggingface==0.1.2
+langchain-chroma==0.1.4
+
+# Modelagem de dados
+pydantic==2.7.4
+
+# OpenAI
+openai==1.55.3
+
+# Outros utilitários
+ipykernel
+jinja2==3.1.4
+pypdf==5.1.0
+yt_dlp
+pydub
+audioop-lts; python_version>="3.13"
+beautifulsoup4==4.12.3
+faiss-cpu==1.9.0.post1
+lark==1.2.2
