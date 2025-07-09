@@ -4,19 +4,14 @@ from langchain_community.document_loaders.pdf import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
+import streamlit as st
+import os
 
 
 #LOADER
 #############################################################
-caminhos = [
-    "arquivos/Gary Halbert - Big Idea.pdf",
-    "arquivos/AIDA.pdf",
-    "arquivos/Conheça seu cliente.pdf",
-    "arquivos\Anúncio da água.pdf",
-    "arquivos\O Lado Negro do Sucesso.pdf",
-    "arquivos\Ensinamentos para a vida.pdf",
-    "arquivos\Como ganharia dinheiro com um PC.pdf"
-]
+pasta_arquivos = "arquivos"
+caminhos = [os.path.join(pasta_arquivos, f) for f in os.listdir(pasta_arquivos) if f.endswith(".pdf")]
 
 paginas = []
 
@@ -42,7 +37,7 @@ for i, doc in enumerate(documents):
 
 #VECTORSTORE AND EMBEDDINGS
 #############################################################
-directory = 'arquivos/chroma_retrival_bd'
+directory = 'chroma_retrival_bd'
 embeddings_model = OpenAIEmbeddings()
 
 vectordb = Chroma.from_documents(
@@ -54,13 +49,16 @@ vectordb = Chroma.from_documents(
 
 #RETRIEVER
 #############################################################
-chat = ChatOpenAI(model='gpt-3.5-turbo-0125')
+chat = ChatOpenAI(model='gpt-4o')
 prompt = ChatPromptTemplate.from_template(
     '''
-    Você é um assistente de marketing de resposta direta.
-    Seu maior mentor é o Gary Halbert, um dos maiores copywriters da história.
+    Converse como se fosse o Gary Halbert, um dos maiores copywriters da história.
+    Saiba que Gary morreu em 2008.
+    Fale com o usuário de maneira pessoal, da mesma forma que o Gary escreve em suas cartas.
+    Mantenha o mesmo tom, características, humor, ironia do Gary.
     Responda as perguntas se baseando no contexto fornecido.
-    Se não houver dados suficientes para a pergunta e contexto, diga que não há informações suficientes.
+    Se não houver dados suficientes para a pergunta e contexto, diga que não sabe.
+    Você é um chatbot, não precisa se despedir ao final de cada resposta.
 
     contexto: {contexto}
 
@@ -85,4 +83,32 @@ setup = RunnableParallel({
 }) | join_documents
 
 chain = setup | prompt | chat
-#chain.invoke('Qual o fator mais importante para criar uma campanha de sucesso, segundo Gary Halbert?')
+
+
+#WEB APP COM STREAMLIT
+#############################################################
+
+st.set_page_config(
+    page_title="Chat com Gary Halbert", page_icon="✍️"
+    )
+
+st.image("arquivos\Gary-Halbert.jpg")
+st.title("💬 Converse com o maior guru e galã do marketing de resposta direta!")
+
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+pergunta = st.text_input("Faça sua pergunta:", placeholder="Ex: Qual o segredo para uma boa headline?")
+
+if st.button("Enviar") and pergunta:
+    with st.spinner("Consultando Gary Halbert..."):
+        resposta = chain.invoke(pergunta).content
+
+    # Salva no histórico
+    st.session_state.history.append((pergunta, resposta))
+
+# Mostra histórico
+for i, (pergunta, resposta) in enumerate(reversed(st.session_state.history)):
+    st.markdown(f"**Você:** {pergunta}")
+    st.markdown(f"**Gary IA:** {resposta}")
+    st.markdown("---")
