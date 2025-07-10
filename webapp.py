@@ -1,7 +1,7 @@
 from langchain_chroma.vectorstores import Chroma
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough, RunnableParallel
+from langchain_core.runnables import RunnablePassthrough, RunnableParallel, RunnableLambda
 import streamlit as st
 from main import documents
 
@@ -41,7 +41,7 @@ retriever = vectordb.as_retriever(search_type='mmr', search_kwargs={'k': 5, 'fet
 
 setup = RunnableParallel({
     'pergunta': RunnablePassthrough(),
-    'contexto': retriever
+    'contexto': retriever,
 })
 
 def join_documents(input):
@@ -50,7 +50,7 @@ def join_documents(input):
 
 setup = RunnableParallel({
     'pergunta': RunnablePassthrough(),
-    'contexto': retriever
+    'contexto': retriever,
 }) | join_documents
 
 chain = setup | prompt | chat
@@ -72,7 +72,7 @@ if "history" not in st.session_state:
 pergunta = st.text_input("Faça sua pergunta:", placeholder="Ex: Qual o segredo para uma boa headline?")
 
 if st.button("Enviar") and pergunta:
-    with st.spinner("Gary está digitando..."):
+    with st.spinner("Gary está pensando na resposta..."):
         resposta = chain.invoke(pergunta).content
 
     # Salva no histórico
