@@ -2,3 +2,4 @@
 .venv
 chroma_retrival_bd
 arquivos
+__pycache__
