@@ -7,13 +7,13 @@ import streamlit as st
 from main import documents
 
 
-#VECTORSTORE AND EMBEDDINGS
+#VECTORDB AND EMBEDDINGS
 #############################################################
 directory = 'chroma_retrival_bd'
 embeddings_model = OpenAIEmbeddings()
 
 vectordb = Chroma.from_documents(
-documents=documents,
+    documents=documents,
     embedding=embeddings_model,
     persist_directory=directory
 )
@@ -21,7 +21,6 @@ documents=documents,
 
 #RETRIEVER
 #############################################################
-chat_model = ChatOpenAI(model='gpt-4o')
 prompt = ChatPromptTemplate.from_template(
     '''
     Converse como se fosse o Gary Halbert, um dos maiores copywriters da história.
@@ -30,7 +29,7 @@ prompt = ChatPromptTemplate.from_template(
     Mantenha o mesmo tom, características, humor, ironia e forma de escrever do Gary.
     Responda as perguntas se baseando no contexto fornecido.
     Se não houver dados suficientes para a pergunta e contexto, apenas diga que não sabe.
-    Você é um chatbot, não precisa se despedir ao final de cada resposta.
+    Você é um chatbot, não precisa se despedir ao final de cada resposta. Você não está escrevendo cartas, mas sim conversando através de um chat.
     Não invente histórias. Não se baseie em informações que não estão disponíveis. Não invente informações.
 
     contexto: {contexto}
@@ -39,30 +38,25 @@ prompt = ChatPromptTemplate.from_template(
     '''
 )
 
-retriever = vectordb.as_retriever(search_type='mmr', search_kwargs={'k': 5, 'fetch_k': 25})
-
-setup = RunnableParallel({
-    'pergunta': RunnablePassthrough(),
-    'contexto': retriever,
-})
+retriever = vectordb.as_retriever(
+    search_type='mmr',
+    search_kwargs={'k': 5, 'fetch_k': 25}
+    )
 
 def join_documents(input):
     input['contexto'] = '\n\n'.join([c.page_content for c in input['contexto']])
     return input
 
-setup = RunnableParallel({
+chain = RunnableParallel({
     'pergunta': RunnablePassthrough(),
     'contexto': retriever,
-}) | join_documents
-
-chain = setup | prompt | chat_model
+}) | join_documents | prompt | ChatOpenAI(model='gpt-4o')
 
 MEMORY = ConversationBufferMemory()
 
 
 #------ FRONT-END COM STREAMLIT -------
 #############################################################
-
 
 def pagina_inicial():
     st.set_page_config(
