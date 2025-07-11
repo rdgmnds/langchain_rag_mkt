@@ -1,6 +1,7 @@
 from langchain_chroma.vectorstores import Chroma
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+from langchain.memory import ConversationBufferMemory
 from langchain_core.runnables import RunnablePassthrough, RunnableParallel, RunnableLambda
 import streamlit as st
 from main import documents
@@ -12,7 +13,7 @@ directory = 'chroma_retrival_bd'
 embeddings_model = OpenAIEmbeddings()
 
 vectordb = Chroma.from_documents(
-    documents=documents,
+documents=documents,
     embedding=embeddings_model,
     persist_directory=directory
 )
@@ -20,7 +21,7 @@ vectordb = Chroma.from_documents(
 
 #RETRIEVER
 #############################################################
-chat = ChatOpenAI(model='gpt-4o')
+chat_model = ChatOpenAI(model='gpt-4o')
 prompt = ChatPromptTemplate.from_template(
     '''
     Converse como se fosse o Gary Halbert, um dos maiores copywriters da história.
@@ -30,6 +31,7 @@ prompt = ChatPromptTemplate.from_template(
     Responda as perguntas se baseando no contexto fornecido.
     Se não houver dados suficientes para a pergunta e contexto, apenas diga que não sabe.
     Você é um chatbot, não precisa se despedir ao final de cada resposta.
+    Não invente histórias. Não se baseie em informações que não estão disponíveis. Não invente informações.
 
     contexto: {contexto}
 
@@ -53,33 +55,47 @@ setup = RunnableParallel({
     'contexto': retriever,
 }) | join_documents
 
-chain = setup | prompt | chat
+chain = setup | prompt | chat_model
+
+MEMORY = ConversationBufferMemory()
 
 
 #------ FRONT-END COM STREAMLIT -------
 #############################################################
 
-st.set_page_config(
-    page_title="Chat com Gary Halbert", page_icon="✍️"
-    )
 
-st.image("arquivos\Gary-Halbert.jpg")
-st.title("💬 Converse com a IA do maior guru e galã do marketing de resposta direta!")
+def pagina_inicial():
+    st.set_page_config(
+        page_title="Chat com Gary Halbert", page_icon="✍️"
+        )
 
-if "history" not in st.session_state:
-    st.session_state.history = []
+    st.image("arquivos\Gary-Halbert.jpg")
+    st.title("💬 Converse com a IA do maior guru e galã do marketing de resposta direta!")
+    st.divider()
 
-pergunta = st.text_input("Faça sua pergunta:", placeholder="Ex: Qual o segredo para uma boa headline?")
+    memory = st.session_state.get('memory', MEMORY)
 
-if st.button("Enviar") and pergunta:
-    with st.spinner("Gary está pensando na resposta..."):
-        resposta = chain.invoke(pergunta).content
+    for message in memory.buffer_as_messages:
+        chat = st.chat_message(message.type)
+        chat.markdown(message.content)
 
-    # Salva no histórico
-    st.session_state.history.append((pergunta, resposta))
+    user_input = st.chat_input("Fale com o Gary:")
 
-# Mostra histórico
-for i, (pergunta, resposta) in enumerate(reversed(st.session_state.history)):
-    st.markdown(f"**Você:** {pergunta}")
-    st.markdown(f"**Gary Halbert:** {resposta}")
-    st.markdown("---")
+    if user_input:
+        chat = st.chat_message('human')
+        chat.markdown(user_input)
+
+        chat = st.chat_message('ai', avatar="arquivos\gary-halbert-avatar.png")
+        resposta = chat.write_stream(chain.stream(user_input))
+
+        # Salva no histórico
+        memory.chat_memory.add_user_message(user_input)
+        memory.chat_memory.add_ai_message(resposta)
+        st.session_state['memory'] = memory
+
+
+def main():
+    pagina_inicial()
+
+if __name__ == '__main__':
+    main()
